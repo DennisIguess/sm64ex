@@ -1017,7 +1017,11 @@ APCPP_LIB:=lib/APCpp/build/libAPCpp
 ifeq ($(WINDOWS_BUILD),1)
   APCPP_LIB:=$(APCPP_LIB).dll
 else
-  APCPP_LIB:=$(APCPP_LIB).so
+  ifeq ($(OSX_BUILD), 1)
+    APCPP_LIB:=$(APCPP_LIB).dylib
+  else
+    APCPP_LIB:=$(APCPP_LIB).so
+  endif
 endif
 
 $(APCPP_LIB): lib/APCpp/Archipelago.cpp lib/APCpp/Archipelago.h
