@@ -12,9 +12,13 @@ extern "C" {
 #include <vector>
 #include <map>
 #include <cstdio>
+#include <bitset>
 #include <set>
 
 #define WARP_NODE_CREDITS_MIN 0xF8 // level_update.c
+
+// Set to false on some branch for compat with patches
+static constexpr bool SM64AP_SUPPORT_MOVE_RANDO = true;
 
 int starsCollected = 0;
 bool sm64_locations[SM64AP_NUM_LOCS];
@@ -25,6 +29,7 @@ bool sm64_have_metalcap = false;
 bool sm64_have_vanishcap = false;
 bool sm64_have_cannon[15];
 int sm64_completion_type = 0;
+std::bitset<SM64AP_NUM_ABILITIES> sm64_have_abilities;
 int* sm64_clockaction = nullptr;
 int sm64_cost_firstbowserdoor = 8;
 int sm64_cost_basementdoor = 30;
@@ -71,7 +76,10 @@ void SM64AP_RecvItem(int64_t idx, bool notify) {
             gMarioState->numLives++;
             break;
         case SM64AP_ID_CANNONUNLOCK(0) ... SM64AP_ID_CANNONUNLOCK(15-1):
-            sm64_have_cannon[idx-SM64AP_ID_OFFSET-200] = true;
+            sm64_have_cannon[idx-(SM64AP_ID_CANNONUNLOCK(0))] = true;
+            break;
+        case SM64AP_ID_ABILITY(0) ... SM64AP_ID_ABILITY(SM64AP_NUM_ABILITIES-1):
+            sm64_have_abilities[idx-(SM64AP_ID_ABILITY(0))] = true;
             break;
     }
 }
@@ -253,6 +261,12 @@ void SM64AP_SetCourseMap(std::map<int,int> map) {
     map_entrances = map;
 }
 
+void SM64AP_SetMoveRandoVec(int vec) {
+    for (int i = 0; i < SM64AP_NUM_ABILITIES; i++) {
+        sm64_have_abilities[i] = !std::bitset<SM64AP_NUM_ABILITIES>(vec).test(i) || sm64_have_abilities[i];
+    }
+}
+
 void SM64AP_ResetItems() {
     for (int i = 0; i < SM64AP_NUM_LOCS; i++) {
         sm64_locations[i] = false;
@@ -260,6 +274,7 @@ void SM64AP_ResetItems() {
     for (int i = 0; i < 15; i++) {
         sm64_have_cannon[i] = false;
     }
+    sm64_have_abilities.reset();
     sm64_have_key1 = false;
     sm64_have_key2 = false;
     sm64_have_wingcap = false;
@@ -298,6 +313,7 @@ void SM64AP_GenericInit() {
     AP_RegisterSlotDataIntCallback("MIPS2Cost", &SM64AP_SetMIPS2Cost);
     AP_RegisterSlotDataIntCallback("StarsToFinish", &SM64AP_SetStarsToFinish);
     AP_RegisterSlotDataIntCallback("CompletionType", &SM64AP_SetCompletionType);
+    AP_RegisterSlotDataIntCallback("MoveRandoVec", &SM64AP_SetMoveRandoVec);
     AP_RegisterSlotDataMapIntIntCallback("AreaRando", &SM64AP_SetCourseMap);
 
     course_dest_supported = {
@@ -442,6 +458,52 @@ void SM64AP_DeathLinkSend() {
     }
 }
 
+bool SM64AP_CanDoubleJump() {
+    #warning Use doublejump logic once implemented
+    return sm64_have_abilities[SM64AP_ID_TRIPLEJUMP - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanTripleJump() {
+    return sm64_have_abilities[SM64AP_ID_TRIPLEJUMP - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanLongJump() {
+    return sm64_have_abilities[SM64AP_ID_LONGJUMP - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanBackflip() {
+    return sm64_have_abilities[SM64AP_ID_BACKFLIP - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanSideFlip() {
+    return sm64_have_abilities[SM64AP_ID_SIDEFLIP - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanWallKick() {
+    return sm64_have_abilities[SM64AP_ID_WALLKICK - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanDive() {
+    return sm64_have_abilities[SM64AP_ID_DIVE - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanGroundPound() {
+    return sm64_have_abilities[SM64AP_ID_GROUNDPOUND - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanKick() {
+    return sm64_have_abilities[SM64AP_ID_KICK - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanClimb() {
+    return sm64_have_abilities[SM64AP_ID_CLIMB - SM64AP_ABILITY_OFFSET];
+}
+
+bool SM64AP_CanLedgeGrab() {
+    return sm64_have_abilities[SM64AP_ID_LEDGEGRAB - SM64AP_ABILITY_OFFSET];
+}
+
+
 void SM64AP_PrintNext() {
     if (AP_GetConnectionStatus() == AP_ConnectionStatus::Disconnected) {
         print_text(GFX_DIMENSIONS_FROM_LEFT_EDGE(SCREEN_WIDTH / 2) - 7, SCREEN_HEIGHT / 2, "Connecting");
@@ -449,6 +511,10 @@ void SM64AP_PrintNext() {
     if (AP_GetConnectionStatus() == AP_ConnectionStatus::ConnectionRefused) {
         print_text(GFX_DIMENSIONS_FROM_LEFT_EDGE(SCREEN_WIDTH / 2) - 10, SCREEN_HEIGHT / 2, "CONNECTION REFUSED");
         print_text(GFX_DIMENSIONS_FROM_LEFT_EDGE(SCREEN_WIDTH / 2) - 10, SCREEN_HEIGHT / 2 - 20, "CHECK ARGS");
+    }
+    if (!sm64_have_abilities.all() && !SM64AP_SUPPORT_MOVE_RANDO) {
+        print_text(GFX_DIMENSIONS_FROM_LEFT_EDGE(SCREEN_WIDTH / 2) - 10, SCREEN_HEIGHT / 2, "INCOMPATIBLE WITH");
+        print_text(GFX_DIMENSIONS_FROM_LEFT_EDGE(SCREEN_WIDTH / 2) - 10, SCREEN_HEIGHT / 2 - 20, "MOUE RANDO");
     }
     if (!AP_IsMessagePending()) return;
     AP_Message* msg = AP_GetLatestMessage();
