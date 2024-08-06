@@ -27,6 +27,7 @@ bool sm64_have_key2 = false;
 bool sm64_have_wingcap = false;
 bool sm64_have_metalcap = false;
 bool sm64_have_vanishcap = false;
+int sm64_moat_state = 0;
 bool sm64_have_cannon[15];
 int sm64_completion_type = 0;
 std::bitset<SM64AP_NUM_ABILITIES> sm64_have_abilities;
@@ -90,8 +91,12 @@ void SM64AP_CheckLocation(int64_t loc_id) {
 
 u32 SM64AP_CourseStarFlags(s32 courseIdx) {
     u32 starflags = 0;
+    s32 courseIndex = courseIdx;
+    if (courseIdx == -1) {
+        courseIndex = 24;
+    }
     for (int i = 0; i < 7; i++) {
-        if (sm64_locations[i + (courseIdx*7)]) {
+        if (sm64_locations[i + (courseIndex * 7)]) {
             starflags |= (1 << i);
         }
     }
@@ -281,6 +286,15 @@ void SM64AP_ResetItems() {
     sm64_have_metalcap = false;
     sm64_have_vanishcap = false;
     starsCollected = 0;
+
+    AP_SetServerDataRequest moat_request;
+    moat_request.key = AP_GetPrivateServerDataPrefix() + "MoatDrained";
+    moat_request.type = AP_DataType::Int;
+    int def_val = 0;
+    moat_request.operations = {{ "default", &def_val }};
+    moat_request.default_value = &def_val;
+    moat_request.want_reply = true;
+    AP_SetServerData(&moat_request);
 }
 
 void SM64AP_SetReplyHandler(AP_SetReply reply) {
@@ -293,6 +307,8 @@ void SM64AP_SetReplyHandler(AP_SetReply reply) {
                 if (*(int*)(reply.value) == 0b111) AP_StoryComplete();
                 break;
         }
+    } else if (reply.key == AP_GetPrivateServerDataPrefix() + "MoatDrained") {
+        sm64_moat_state = *(int *) (reply.value);
     }
 }
 
@@ -305,6 +321,7 @@ void SM64AP_GenericInit() {
     AP_SetItemRecvCallback(&SM64AP_RecvItem);
     AP_RegisterSetReplyCallback(&SM64AP_SetReplyHandler);
     AP_SetNotify(AP_GetPrivateServerDataPrefix() + "FinishedBowser", AP_DataType::Int);
+    AP_SetNotify(AP_GetPrivateServerDataPrefix() + "MoatDrained", AP_DataType::Int);
 
     AP_RegisterSlotDataIntCallback("FirstBowserDoorCost", &SM64AP_SetFirstBowserDoorCost);
     AP_RegisterSlotDataIntCallback("BasementDoorCost", &SM64AP_SetBasementDoorCost);
@@ -385,6 +402,17 @@ void SM64AP_FinishBowser(int i) {
     AP_SetServerData(&req);
 }
 
+
+void SM64AP_SetMoatDrained() {
+    AP_SetServerDataRequest req;
+    req.key = AP_GetPrivateServerDataPrefix() + "MoatDrained";
+    req.type = AP_DataType::Int;
+    req.want_reply = true;
+    int new_val = 1;
+    req.operations = std::vector<AP_DataStorageOperation>{ { { "replace", &new_val } } };
+    AP_SetServerData(&req);
+}
+
 int SM64AP_GetStars() {
     return starsCollected;
 }
@@ -399,9 +427,9 @@ int SM64AP_GetRequiredStars(int idprx) {
             return sm64_cost_secondfloordoor;
         case 70: // Star Door 70
             return sm64_cost_endlessstairs;
-        case 3626171: // MIPS 1
+        case SM64AP_LOCATIONID_MIPS1: // MIPS 1
             return sm64_cost_mips1;
-        case 3626172: // MIPS 2
+        case SM64AP_LOCATIONID_MIPS2: // MIPS 2
             return sm64_cost_mips2;
         default:
             return idprx;
@@ -437,9 +465,27 @@ bool SM64AP_HaveCap(int flag) {
     }
 }
 
+bool SM64AP_PressedSwitch(int flag) {
+    switch (flag) {
+        case 2:
+            return SM64AP_CheckedLoc(SM64AP_ID_WINGCAP);
+        case 4:
+            return SM64AP_CheckedLoc(SM64AP_ID_METALCAP);
+        case 8:
+            return SM64AP_CheckedLoc(SM64AP_ID_VANISHCAP);
+        default:
+            // Shouldn't happen, but just in case, this shouldn't be pressed
+            return false;
+    }
+}
+
 bool SM64AP_HaveCannon(int courseIdx) {
     if (courseIdx < 15) return sm64_have_cannon[courseIdx];
     return true;
+}
+
+bool SM64AP_MoatDrained() {
+    return sm64_moat_state != 0;
 }
 
 bool SM64AP_DeathLinkPending() {

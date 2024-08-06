@@ -40,6 +40,12 @@ extern "C" {
 #define SM64AP_ID_CANNONUNLOCK(x) (SM64AP_ID_OFFSET+200+x)
 #define SM64AP_ID_ABILITY(x) (SM64AP_ABILITY_OFFSET+x)
 
+#define SM64AP_LOCATIONID_BOARDBOWSERSSUB (SM64AP_ID_OFFSET + 56)
+#define SM64AP_LOCATIONID_BASEMENTTOAD (SM64AP_ID_OFFSET + 168)
+#define SM64AP_LOCATIONID_SECONDFLOORTOAD (SM64AP_LOCATIONID_BASEMENTTOAD + 1)
+#define SM64AP_LOCATIONID_THIRDFLOORTOAD (SM64AP_LOCATIONID_SECONDFLOORTOAD + 1)
+#define SM64AP_LOCATIONID_MIPS1 (SM64AP_LOCATIONID_THIRDFLOORTOAD + 1)
+#define SM64AP_LOCATIONID_MIPS2 (SM64AP_LOCATIONID_MIPS1 + 1)
 
 #define SM64AP_NUM_LOCS 244
 
@@ -88,5 +94,12 @@ AP_EXTERN_C void SM64AP_PrintNext();
 
 // Called on each Bowser stage completion, i is bowser index. Will send StoryComplete depending on completion option.
 AP_EXTERN_C void SM64AP_FinishBowser(int i);
+
+// Used to send and receive moat state
+AP_EXTERN_C void SM64AP_SetMoatDrained();
+AP_EXTERN_C bool SM64AP_MoatDrained();
+
+// Check for switch state (used for initial switch state on level load)
+AP_EXTERN_C bool SM64AP_PressedSwitch(int);
 
 #undef AP_EXTERN_C
