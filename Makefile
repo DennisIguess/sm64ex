@@ -704,9 +704,11 @@ ZEROTERM = $(PYTHON) $(TOOLS_DIR)/zeroterm.py
 
 all: $(EXE)
 
-# thank you apple very cool
+# This used to set cp to gcp on mac, dunno why
+# gcp does not exist on my mac anymore, so just use cp for everything
+# Keeping the check for future changes though
 ifeq ($(HOST_OS),Darwin)
-  CP := gcp
+  CP := cp
 else
   CP := cp
 endif
